@@ -36,6 +36,7 @@
           "subspec": "full-gpl"
         }
       ]
-    ]
+    ],
+    "newArchEnabled": false
   }
 }
