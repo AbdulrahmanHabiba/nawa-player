@@ -30,7 +30,9 @@ Description: `Offline Android audio player with voice recording and video creati
 
 Topics: `android`, `react-native`, `expo`, `audio-player`, `voice-recorder`, `video-maker`, `typescript`, `offline`
 
-## First test APK
-[Download Nawa build 2](https://github.com/AbdulrahmanHabiba/nawa-player/releases/download/build-2/app-release.apk) (about 184 MB).
+## Latest test APK
+[Download Nawa ARM64 build 3](https://github.com/AbdulrahmanHabiba/nawa-player/releases/download/build-3/nawa-arm64-v8a.apk) (52.9 MB).
+
+For ARM64 Android devices, including HONOR 200. GitHub Actions verifies that the APK contains only arm64-v8a native libraries. The previous universal APK was 183.8 MB; this build is about 71% smaller. Future builds use ARM64 only.
 
 This is an initial test build using the generated development signing key. Playback, recording, rotation and MP4 export still need testing on a physical Android device. The legacy React Native architecture is enabled for FFmpeg compatibility.
