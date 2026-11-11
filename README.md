@@ -21,7 +21,7 @@ npx expo run:android
 Push to `main`, then open GitHub Actions. Successful builds upload an APK artifact and publish it under Releases.
 
 ## Validation status
-TypeScript checking, Expo Android prebuild and Metro/Hermes Android export pass. The custom metadata/recording module is discovered by Expo autolinking. The original retired FFmpeg dependency has been replaced with @nikhil-cephei/ffmpeg-kit-react-native 6.0.12 (full-gpl); its Android AAR download was verified. A full Gradle build and device tests are still pending. Lock-screen media controls are not implemented in this SDK version. See HANDOFF.md for details.
+TypeScript checking, Expo Android prebuild and Metro/Hermes Android export pass. The custom metadata/recording module is discovered by Expo autolinking. The original retired FFmpeg dependency has been replaced with @nikhil-cephei/ffmpeg-kit-react-native 6.0.12 (full-gpl); its Android AAR download was verified. GitHub Actions completed a full Gradle release APK build successfully (build 2, source commit `815f825d402147a4061ab29b9de03583bbe45fbd`). Device tests are still pending. Lock-screen media controls are not implemented in this SDK version. See HANDOFF.md for details.
 
 ## Repository metadata
 Suggested repository: `nawa-player`
@@ -29,3 +29,8 @@ Suggested repository: `nawa-player`
 Description: `Offline Android audio player with voice recording and video creation. Built with React Native and Expo.`
 
 Topics: `android`, `react-native`, `expo`, `audio-player`, `voice-recorder`, `video-maker`, `typescript`, `offline`
+
+## First test APK
+[Download Nawa build 2](https://github.com/AbdulrahmanHabiba/nawa-player/releases/download/build-2/app-release.apk) (about 184 MB).
+
+This is an initial test build using the generated development signing key. Playback, recording, rotation and MP4 export still need testing on a physical Android device. The legacy React Native architecture is enabled for FFmpeg compatibility.
