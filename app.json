@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Nawa",
+    "slug": "nawa-player",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.abdulrahman.nawa",
+      "permissions": [
+        "READ_MEDIA_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "RECORD_AUDIO",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "POST_NOTIFICATIONS",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Nawa to record audio"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "@nikhil-cephei/ffmpeg-kit-react-native",
+        {
+          "subspec": "full-gpl"
+        }
+      ]
+    ]
+  }
+}
