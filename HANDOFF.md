@@ -8,9 +8,11 @@ This section supersedes conflicting statements in the original notes below.
 - Removed a call to setActiveForLockScreen: it does not exist in expo-audio 0.4.9 and would fail at runtime. Lock-screen controls remain pending.
 - Added package-lock.json, npm ci and type checking to the build workflow; upload/release steps fail if the APK is missing.
 - TypeScript, Expo Android prebuild and Metro/Hermes Android export passed. Added missing expo-asset and explicit expo-font dependencies for bundling. Expo autolinking finds MusicMetaModule.
-- Full Gradle build, signing review, device playback/recording/export tests remain pending. Generated release projects currently use the Expo development signing key; configure a private stable release keystore before public distribution.
-- Target repository: https://github.com/AbdulrahmanHabiba/nawa-player (created by project owner). Source upload and the first GitHub Actions build are in progress.
+- Full Gradle assembleRelease succeeded in GitHub Actions build 2. Signing review and device playback/recording/export tests remain pending. Generated release projects currently use the Expo development signing key; configure a private stable release keystore before public distribution.
+- Target repository: https://github.com/AbdulrahmanHabiba/nawa-player (created by project owner). Source upload completed. Build 1 failed because FFmpeg's new-architecture generated spec was missing. Setting expo.newArchEnabled=false fixed it; build 2 succeeded and published app-release.apk (183,843,559 bytes).
 - FFmpeg install postinstall timed out through this workspace proxy; direct curl download of the same AAR succeeded. GitHub Actions must verify npm ci and native linking in its own environment.
+- APK: https://github.com/AbdulrahmanHabiba/nawa-player/releases/download/build-2/app-release.apk
+- Successful source commit: 815f825d402147a4061ab29b9de03583bbe45fbd; successful run: https://github.com/AbdulrahmanHabiba/nawa-player/actions/runs/42998529983
 - full-gpl FFmpeg distribution carries GPLv3 obligations; review dependency licensing before public distribution.
 
 ---
