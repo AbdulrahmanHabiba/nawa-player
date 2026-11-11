@@ -33,21 +33,52 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --clean
 
+      - name: Restrict native libraries to ARM64
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              defaultConfig {
+                  ndk {
+                      abiFilters "arm64-v8a"
+                  }
+              }
+          }
+          GRADLE
+
       - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Verify ARM64 APK and prepare download
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          import zipfile
+
+          source = Path("android/app/build/outputs/apk/release/app-release.apk")
+          with zipfile.ZipFile(source) as apk:
+              abis = {name.split("/")[1] for name in apk.namelist()
+                      if name.startswith("lib/") and name.endswith(".so")}
+          assert abis == {"arm64-v8a"}, f"Unexpected APK architectures: {abis}"
+          target = Path("dist-apk/nawa-arm64-v8a.apk")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(source, target)
+          print(f"Verified ARM64 only: {target.stat().st_size:,} bytes")
+          PY
 
       - name: Upload APK (workflow artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: nawa-apk
+          name: nawa-arm64-v8a-apk
           if-no-files-found: error
-          path: android/app/build/outputs/apk/release/*.apk
+          path: dist-apk/nawa-arm64-v8a.apk
 
       - name: Publish APK to a GitHub Release (direct download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Nawa build ${{ github.run_number }}
+          name: Nawa ARM64 build ${{ github.run_number }}
           fail_on_unmatched_files: true
-          files: android/app/build/outputs/apk/release/*.apk
+          files: dist-apk/nawa-arm64-v8a.apk
