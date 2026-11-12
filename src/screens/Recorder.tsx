@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, View, PanResponder } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View, PanResponder, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { requestRecordingPermissionsAsync, createAudioPlayer } from 'expo-audio';
@@ -12,6 +12,10 @@ const DIR = FileSystem.documentDirectory + 'recordings/';
 const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export default function Recorder() {
+  const [settings, setSettings] = useState(false);
+  const active = useRef(false);
+  const busy = useRef(false);
+  useEffect(() => () => { if (active.current) void MusicMeta.stopRecording(); player.current?.remove(); }, []);
   const [isRec, setIsRec] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [isolation, setIsolation] = useState(true);
@@ -37,7 +41,7 @@ export default function Recorder() {
       const info = await FileSystem.getInfoAsync(DIR);
       if (!info.exists) return;
       const names = (await FileSystem.readDirectoryAsync(DIR)).filter(n => n.endsWith('.wav')).sort().reverse();
-      setRecs(names.map(n => ({ uri: DIR + n, name: n.replace(/\.wav$/, ''), seconds: 0 })));
+      setRecs(await Promise.all(names.map(async n => { const f = await FileSystem.getInfoAsync(DIR+n); return {uri:DIR+n,name:n.slice(0,-4),seconds:f.exists ? Math.max(0,f.size-44)/88200 : 0}; })));
     })();
   }, []);
 
@@ -48,21 +52,30 @@ export default function Recorder() {
     const name = `New Recording ${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
     const ok = await MusicMeta.startRecording((DIR + name + '.wav').replace('file://', ''), isolation, sens);
     if (!ok) return Alert.alert('Could not start recording');
+    active.current = true;
     setLevels(Array(BARS).fill(0)); t0.current = Date.now(); setElapsed(0); setIsRec(true);
   };
   const stop = async () => {
     const r = await MusicMeta.stopRecording();
+    active.current = false;
     setIsRec(false);
     const uri = 'file://' + r.path;
     setRecs(x => [{ uri, name: r.path.split('/').pop()!.replace(/\.wav$/, ''), seconds: r.seconds }, ...x]);
   };
   const playRec = (r: Rec) => {
-    player.current?.remove();
+    player.current?.remove(); player.current = null;
     if (playing === r.uri) return setPlaying(null);
     player.current = createAudioPlayer({ uri: r.uri });
     player.current.play(); setPlaying(r.uri);
   };
 
+  async function record() {
+    if (busy.current) return;
+    busy.current = true;
+    try { if (active.current) await stop(); else await start(); }
+    catch (error) { Alert.alert('Recorder', String(error)); }
+    finally { busy.current = false; }
+  }
   const w = useRef(1);
   const pan = React.useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true, onMoveShouldSetPanResponder: () => true,
@@ -72,8 +85,22 @@ export default function Recorder() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <Text style={{ color: C.text, fontSize: 34, fontWeight: '700', padding: 20 }}>Voice Memos</Text>
-      <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: '#1c1c1e' }}>
+      <Text style={{ color: C.text, fontSize: 34, fontWeight: '700', padding: 20 }}>Recordings</Text>
+      <FlatList data={recs} keyExtractor={r => r.uri} contentContainerStyle={{ paddingBottom: 100 }}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => playRec(item)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 0.5, borderColor: '#2a2a2e' }}>
+            <Ionicons name={playing === item.uri ? 'pause-circle' : 'play-circle'} size={32} color={C.accent} />
+            <Text numberOfLines={1} style={{ flex: 1, color: '#fff', marginLeft: 12 }}>{item.name}</Text>
+            {item.seconds > 0 && <Text style={{ color: C.sub }}>{fmt(item.seconds)}</Text>}
+          </Pressable>
+        )} />
+      <View style={{backgroundColor:'#18151c',borderTopLeftRadius:28,borderTopRightRadius:28,paddingTop:10}}>
+        <View style={{height:4,width:42,backgroundColor:'#625962',alignSelf:'center',borderRadius:2}}/>
+        <Pressable onPress={()=>setSettings(!settings)} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:24,paddingVertical:10}}>
+          <Text style={{color:'#fff',fontSize:19,fontWeight:'700'}}>{isRec?'Recording':'New recording'}</Text>
+          <Ionicons name="options-outline" size={24} color="#ff637d"/>
+        </Pressable>
+      {settings && <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: '#1c1c1e' }}>
         <Pressable onPress={() => setIsolation(v => !v)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Noise Isolation</Text>
@@ -89,24 +116,18 @@ export default function Recorder() {
             <View style={{ width: `${sens * 100}%`, height: '100%', backgroundColor: C.accent }} />
           </View>
         </View>
-      </View>
+      </View>}
 
-      <View style={{ height: 110, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 16 }}>
-        {levels.map((v, i) => <View key={i} style={{ width: 3, height: 4 + v * 90, borderRadius: 2, backgroundColor: C.accent, opacity: 0.4 + v * 0.6 }} />)}
+      <View style={{ height: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 16 }}>
+        {levels.map((v, i) => <View key={i} style={{ width: 3, height: 3 + v * 66, borderRadius: 2, backgroundColor: C.accent, opacity: 0.4 + v * 0.6 }} />)}
       </View>
       <Text style={{ color: '#fff', fontSize: 40, textAlign: 'center', fontVariant: ['tabular-nums'] }}>{fmt(elapsed)}</Text>
-      <Pressable onPress={isRec ? stop : start} style={{ alignSelf: 'center', marginVertical: 18, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <Pressable accessibilityLabel={isRec?"Stop recording":"Start recording"} onPress={record} style={{ alignSelf: 'center', marginVertical: 18, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
         <View style={{ width: isRec ? 28 : 62, height: isRec ? 28 : 62, borderRadius: isRec ? 7 : 31, backgroundColor: '#FF3B30' }} />
       </Pressable>
 
-      <FlatList data={recs} keyExtractor={r => r.uri} contentContainerStyle={{ paddingBottom: 100 }}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => playRec(item)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 0.5, borderColor: '#2a2a2e' }}>
-            <Ionicons name={playing === item.uri ? 'pause-circle' : 'play-circle'} size={32} color={C.accent} />
-            <Text numberOfLines={1} style={{ flex: 1, color: '#fff', marginLeft: 12 }}>{item.name}</Text>
-            {item.seconds > 0 && <Text style={{ color: C.sub }}>{fmt(item.seconds)}</Text>}
-          </Pressable>
-        )} />
+
+    </View>
     </View>
   );
 }

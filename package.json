@@ -1,12 +1,13 @@
 {
   "name": "nawa-player",
   "version": "0.1.0",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "android": "expo run:android",
     "start": "expo start --dev-client",
     "typecheck": "tsc --noEmit",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "postinstall": "node scripts/track-player-compat.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -24,6 +25,7 @@
     "expo-sharing": "~13.1.0",
     "react": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-track-player": "^4.1.2",
     "react-native-view-shot": "4.0.3",
     "zustand": "^5.0.0"
   },

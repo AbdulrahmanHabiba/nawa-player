@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, Text, View, useWindowDimensions, PanResponder } from 'react-native';
+import { Image, Pressable, Text, View, FlatList, useWindowDimensions, PanResponder } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../store/player';
@@ -26,13 +26,27 @@ function Bar({ value, onChange, height = 6 }: { value: number; onChange: (v: num
 export default function NowPlaying({ onClose }: { onClose: () => void }) {
   const { queue, index, playing, position, duration, volume, toggle, next, prev, seek, setVolume } = usePlayer();
   const { width, height } = useWindowDimensions();
+  const [upNext, showQueue] = React.useState(false);
+  const move = usePlayer(p=>p.move);
   const t = queue[index];
   if (!t) return null;
   const land = width > height;
+  const queueButton=<Pressable accessibilityLabel="Up next" onPress={()=>showQueue(true)} style={{padding:10}}><Ionicons name="list" color="white" size={26}/></Pressable>;
+  if(upNext) return <View style={{flex:1,backgroundColor:'#19121c',padding:22,paddingTop:38}}>
+    <Pressable onPress={()=>showQueue(false)}><Text style={{color:'#ff7990'}}>‹ Now Playing</Text></Pressable>
+    <Text style={{color:'white',fontSize:32,fontWeight:'700',marginVertical:15}}>Up next</Text>
+    <FlatList data={queue} keyExtractor={item=>item.id} renderItem={({item,index:i})=><View style={{flexDirection:'row',alignItems:'center',paddingVertical:11,gap:16}}>
+      <Pressable style={{flex:1}} onPress={()=>usePlayer.getState().playQueue(queue,i)}><Text numberOfLines={1} style={{color:i===index?'#ff7990':'white'}}>{item.title}</Text></Pressable>
+      <Pressable accessibilityLabel="Move up" disabled={i===0} onPress={()=>move(i,i-1)}><Ionicons name="chevron-up" size={24} color={i?'white':'#666'}/></Pressable>
+      <Pressable accessibilityLabel="Move down" disabled={i===queue.length-1} onPress={()=>move(i,i+1)}><Ionicons name="chevron-down" size={24} color="white"/></Pressable>
+    </View>}/>
+  </View>;
+  const backdrop=t.artwork?<Image source={{uri:t.artwork}} blurRadius={32} style={{position:'absolute',width:'120%',height:'120%',left:'-10%',top:'-10%',opacity:0.35}}/>:null;
   if (land) {
     const d = Math.min(height - 70, width * 0.38);
     return (
       <LinearGradient colors={[C.gradTop, C.gradBottom]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 36 }}>
+        {backdrop}
         <Pressable onPress={onClose} style={{ position: 'absolute', top: 12, left: 16, width: 34, height: 34, borderRadius: 17, backgroundColor: C.glass, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-down" size={20} color="#fff" />
         </Pressable>
@@ -45,7 +59,7 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
             <View style={{ flex: 1, marginHorizontal: 8 }}><Bar value={volume} onChange={setVolume} height={4} /></View>
             <Ionicons name="volume-high" size={14} color={C.sub} />
           </View>
-          <Text style={{ color: C.sub, fontSize: 11, letterSpacing: 1, marginTop: 10 }}>NOW PLAYING</Text>
+          <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{color:C.sub,letterSpacing:2}}>NOW PLAYING</Text>{queueButton}</View>
           <Text numberOfLines={1} style={{ color: '#fff', fontSize: 22, fontWeight: '600' }}>{t.title}</Text>
           <Text numberOfLines={1} style={{ color: C.sub, fontSize: 15 }}>{t.artist}</Text>
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 36, marginVertical: 14 }}>
@@ -65,7 +79,8 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
   const art = Math.min(width - 56, height * 0.42);
   return (
     <LinearGradient colors={[C.gradTop, C.gradBottom]} style={{ flex: 1, paddingHorizontal: 28, paddingTop: 48 }}>
-      <Pressable onPress={onClose} style={{ alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+      {backdrop}
+      <Pressable accessibilityLabel='Close player' hitSlop={12} onPress={onClose} style={{alignSelf:'center'}}><Ionicons name='chevron-down' size={24} color='white'/></Pressable>
       <View style={{ alignItems: 'center', marginTop: 28 }}>
         <View style={{ width: art, height: art, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', elevation: 20 }}>
           {t.artwork ? <Image source={{ uri: t.artwork }} style={{ width: '100%', height: '100%', borderRadius: 14 }} /> : <Ionicons name="musical-note" size={art * 0.35} color="rgba(255,255,255,0.5)" />}
@@ -76,11 +91,7 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
           <Text numberOfLines={1} style={{ color: C.text, fontSize: 22, fontWeight: '700' }}>{t.title}</Text>
           <Text numberOfLines={1} style={{ color: C.sub, fontSize: 20 }}>{t.artist}</Text>
         </View>
-        {['star', 'ellipsis-horizontal'].map(n => (
-          <View key={n} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.glass, alignItems: 'center', justifyContent: 'center', marginLeft: 12 }}>
-            <Ionicons name={n as any} size={16} color="#fff" />
-          </View>
-        ))}
+        {queueButton}
       </View>
       <View style={{ marginTop: 16 }}>
         <Bar value={duration ? position / duration : 0} onChange={v => seek(v * duration)} />

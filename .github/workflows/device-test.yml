@@ -1,0 +1,42 @@
+name: Android device test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npx expo prebuild --platform android --clean
+      - run: |
+          echo 'android.defaultConfig.ndk.abiFilters "x86_64"' >> android/app/build.gradle
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - run: sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_2
+          script: python3 scripts/android-smoke.py
+      - run: command -v ffprobe || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+      - name: Check exported audio and video streams
+        run: |
+          python3 - <<'PY'
+          import subprocess,json
+          data=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json','/tmp/nawa-smoke.mp4']))
+          assert {'video','audio'}=={s['codec_type'] for s in data['streams']}
+          assert 14 <= float(data['format']['duration']) <= 17
+          PY

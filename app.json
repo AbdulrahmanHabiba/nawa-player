@@ -14,7 +14,11 @@
         "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "POST_NOTIFICATIONS",
         "MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/nawa-icon.png",
+        "backgroundColor": "#271729"
+      }
     },
     "plugins": [
       [
@@ -37,6 +41,7 @@
         }
       ]
     ],
-    "newArchEnabled": false
+    "newArchEnabled": false,
+    "icon": "./assets/nawa-icon.png"
   }
 }

@@ -5,16 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Font from 'expo-font';
+import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import { FFmpegKit, ReturnCode } from '@nikhil-cephei/ffmpeg-kit-react-native';
+import { FFmpegKit, FFmpegKitConfig, ReturnCode } from '@nikhil-cephei/ffmpeg-kit-react-native';
 import { usePlayer } from '../store/player';
 import { C } from '../theme';
 
 const PRESETS: [string, string][] = [['#B31F3C', '#1A0409'], ['#5B2A86', '#1B1033'], ['#0F7B8A', '#06212B'], ['#F2994A', '#4A1D0A'], ['#2D2D34', '#000000']];
 const FONTS = [['System', undefined], ['Serif', 'serif'], ['Mono', 'monospace'], ['Light', 'sans-serif-light'], ['Condensed', 'sans-serif-condensed'], ['Cursive', 'cursive']] as const;
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
-const strip = (u: string) => u.replace('file://', '');
+const strip = (u: string) => u.startsWith('file://') ? decodeURIComponent(u.slice(7)) : u;
 
 function Slider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const w = useRef(1);
@@ -38,7 +40,7 @@ const Card = ({ title, children }: any) => (
   </View>
 );
 const Chip = ({ label, on, onPress }: any) => (
-  <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, marginRight: 8, backgroundColor: on ? C.accent : '#2c2c30' }}>
+  <Pressable accessibilityLabel={label} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, marginRight: 8, backgroundColor: on ? C.accent : '#2c2c30' }}>
     <Text style={{ color: '#fff', fontSize: 13 }}>{label}</Text>
   </Pressable>
 );
@@ -56,6 +58,19 @@ export default function VideoMaker() {
   const [size, setSize] = useState(0.4);
   const [statusBar, setStatusBar] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [exported,setExported] = useState<string|null>(null);
+  const [customFont,setCustomFont] = useState<string>();
+  const ready=useRef(false);
+  const pickFont=async()=>{
+    try {
+      const result=await DocumentPicker.getDocumentAsync({type:'*/*',copyToCacheDirectory:true});
+      if(result.canceled)return;
+      const asset=result.assets[0];
+      if(!/\.(otf|ttf)$/i.test(asset.name))throw Error('Choose a TTF or OTF font');
+      const key='NawaFont'+Date.now();
+      await Font.loadAsync({[key]:asset.uri});setFont(key);setCustomFont(key);
+    }catch(e){Alert.alert('Font',String(e));}
+  };
 
   const pickAudio = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
@@ -68,18 +83,24 @@ export default function VideoMaker() {
 
   const exportVideo = async () => {
     if (!audio) return Alert.alert('Choose an audio file first');
+    if(ready.current)return;
+    ready.current=true;
     setBusy(true);
+    setExported(null);
+    let frame: string|undefined;
     try {
-      // 1) render the preview view to a 1080x1920 PNG
-      const png = await captureRef(canvas, { format: 'png', width: 1080, height: 1920, result: 'tmpfile' });
-      // 2) mux still image + audio -> mp4
-      const out = FileSystem.cacheDirectory + `video-${Date.now()}.mp4`;
-      const cmd = `-y -loop 1 -framerate 30 -i "${strip(png)}" -i "${strip(audio.uri)}" -c:v libx264 -tune stillimage -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 192k -shortest -movflags +faststart "${strip(out)}"`;
-      const session = await FFmpegKit.execute(cmd);
-      if (!ReturnCode.isSuccess(await session.getReturnCode())) throw new Error(await session.getFailStackTrace() ?? 'ffmpeg failed');
-      await Sharing.shareAsync(out, { mimeType: 'video/mp4' }); // user can save to gallery / share
-    } catch (e: any) { Alert.alert('Export failed', String(e?.message ?? e)); }
-    setBusy(false);
+      frame=await captureRef(canvas,{format:'png',width:1080,height:1920,result:'tmpfile'});
+      const input=audio.uri.startsWith('content://')?await FFmpegKitConfig.getSafParameterForRead(audio.uri):strip(audio.uri);
+      const out=FileSystem.cacheDirectory+'nawa-'+Date.now()+'.mp4';
+      const args=['-y','-loop','1','-framerate','12','-i',strip(frame),'-i',input,'-map','0:v:0','-map','1:a:0','-vf','scale=1080:1920,setsar=1','-c:v','libx264','-threads','2','-tune','stillimage','-preset','ultrafast','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-shortest','-movflags','+faststart',strip(out)];
+      const session=await FFmpegKit.executeWithArguments(args);
+      if(!ReturnCode.isSuccess(await session.getReturnCode())) {
+        await FileSystem.deleteAsync(out,{idempotent:true});
+        throw Error((await session.getOutput())?.trim().split('\n').slice(-4).join('\n') || 'Could not encode the selected media');
+      }
+      setExported(out);
+    } catch(e){Alert.alert('Export failed',String(e));}
+    finally { ready.current=false;setBusy(false);if(frame) await FileSystem.deleteAsync(frame.startsWith('/')?'file://'+frame:frame,{idempotent:true}).catch(()=>{}); }
   };
 
   const fs = 18 + size * 40;
@@ -92,6 +113,7 @@ export default function VideoMaker() {
         {image
           ? <Image source={{ uri: image }} blurRadius={blur * 25} resizeMode="cover" style={{ position: 'absolute', width: '100%', height: '100%' }} />
           : <LinearGradient colors={grad} style={{ position: 'absolute', width: '100%', height: '100%' }} />}
+        {image && <Image source={{uri:image}} resizeMode="cover" style={{position:'absolute',top:88,left:36,width:168,height:168,borderRadius:12}}/>}
         {statusBar && (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingTop: 10 }}>
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>9:41</Text>
@@ -100,7 +122,7 @@ export default function VideoMaker() {
             </View>
           </View>
         )}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: image?'flex-end':'center', padding: 20 }}>
           <Text style={{ color: '#fff', fontSize: fs * 0.6, fontFamily: font, textAlign: 'center', fontWeight: '700' }}>{text}</Text>
         </View>
       </View>
@@ -141,6 +163,7 @@ export default function VideoMaker() {
       <Card title="Text">
         <TextInput value={text} onChangeText={setText} multiline style={{ color: '#fff', backgroundColor: '#2c2c30', borderRadius: 10, padding: 10, minHeight: 44 }} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+          <Chip label="Import font" on={!!customFont && font===customFont} onPress={pickFont}/>
           {FONTS.map(([l, f]) => <Chip key={l} label={l} on={font === f} onPress={() => setFont(f)} />)}
         </ScrollView>
         <Text style={{ color: C.sub, marginTop: 8 }}>Size</Text>
@@ -157,6 +180,10 @@ export default function VideoMaker() {
       <Pressable onPress={exportVideo} disabled={busy} style={{ margin: 16, height: 52, borderRadius: 26, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' }}>
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Export MP4</Text>}
       </Pressable>
+      {exported && <Card title="Video ready"><View style={{flexDirection:'row'}}>
+        <Chip label="Save to gallery" on onPress={async()=>{try{await MediaLibrary.saveToLibraryAsync(exported);Alert.alert('Saved to gallery');}catch(e){Alert.alert('Save failed',String(e));}}}/>
+        <Chip label="Share video" on onPress={()=>Sharing.shareAsync(exported,{mimeType:'video/mp4'}).catch(e=>Alert.alert('Share failed',String(e)))}/>
+      </View></Card>}
     </ScrollView>
   );
 }

@@ -16,7 +16,7 @@ export async function loadLibrary(): Promise<Track[]> {
     if (!page.hasNextPage) break;
     after = page.endCursor;
   }
-  return out.filter(t => t.duration > 20);
+  return out;
 }
 
 export async function readOne(t: Track): Promise<Track> {
