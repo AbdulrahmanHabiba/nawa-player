@@ -17,7 +17,8 @@ export async function loadLibrary(): Promise<Track[]> {
     if (!page.hasNextPage) break;
     after = page.endCursor;
   }
-  return out;
+  const dates = await MusicMeta.audioDates().catch(() => ({} as Record<string,number>));
+  return out.map(track=>({...track,addedAt:dates[track.id] ?? track.addedAt})).sort((a,b)=>(b.addedAt??0)-(a.addedAt??0));
 }
 
 export async function readOne(t: Track): Promise<Track> {

@@ -30,6 +30,18 @@ class MusicMetaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MusicMeta")
     Events("onMeter")
+    AsyncFunction("audioDates") {
+      val dates = mutableMapOf<String, Double>()
+      val ctx = appContext.reactContext ?: throw IllegalStateException("No Android context")
+      ctx.contentResolver.query(
+        android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+        arrayOf(android.provider.MediaStore.Audio.Media._ID, android.provider.MediaStore.Audio.Media.DATE_ADDED),
+        null, null, null
+      )?.use { cursor ->
+        while (cursor.moveToNext()) dates[cursor.getString(0)] = cursor.getLong(1) * 1000.0
+      }
+      dates
+    }
 
     AsyncFunction("read") { uri: String, key: String -> readMeta(uri, key) }
     AsyncFunction("startRecording") { path: String, isolation: Boolean, sens: Double -> startRec(path, isolation, sens) }
