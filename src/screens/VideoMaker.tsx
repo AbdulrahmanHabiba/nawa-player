@@ -50,6 +50,7 @@ export default function VideoMaker() {
   const cur = queue[index];
   const canvas = useRef<View>(null);
   const [audio, setAudio] = useState<{ uri: string; name: string } | null>(null);
+  const selectedAudio = audio ?? (cur ? { uri: cur.uri, name: cur.title } : null);
   const [image, setImage] = useState<string | null>(null);
   const [grad, setGrad] = useState<[string, string]>(PRESETS[0]);
   const [draftColors,setDraftColors] = useState<[string,string]>(PRESETS[0]);
@@ -83,7 +84,7 @@ export default function VideoMaker() {
   };
 
   const exportVideo = async () => {
-    if (!audio) return Alert.alert('Choose an audio file first');
+    if (!selectedAudio) return Alert.alert('Choose an audio file first');
     if(ready.current)return;
     ready.current=true;
     setBusy(true);
@@ -91,7 +92,7 @@ export default function VideoMaker() {
     let frame: string|undefined;
     try {
       frame=await captureRef(canvas,{format:'png',width:1080,height:1920,result:'tmpfile'});
-      const input=audio.uri.startsWith('content://')?await FFmpegKitConfig.getSafParameterForRead(audio.uri):strip(audio.uri);
+      const input=selectedAudio.uri.startsWith('content://')?await FFmpegKitConfig.getSafParameterForRead(selectedAudio.uri):strip(selectedAudio.uri);
       const out=FileSystem.cacheDirectory+'nawa-'+Date.now()+'.mp4';
       const args=['-y','-loop','1','-framerate','12','-i',strip(frame),'-i',input,'-map','0:v:0','-map','1:a:0','-vf','scale=1080:1920,setsar=1','-c:v','libx264','-threads','2','-tune','stillimage','-preset','ultrafast','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-shortest','-movflags','+faststart',strip(out)];
       const session=await FFmpegKit.executeWithArguments(args);
@@ -133,7 +134,7 @@ export default function VideoMaker() {
           <Chip label="Pick file" on={false} onPress={pickAudio} />
           {cur && <Chip label="Current song" on={false} onPress={() => setAudio({ uri: cur.uri, name: cur.title })} />}
         </View>
-        <Text style={{ color: C.sub, marginTop: 8 }} numberOfLines={1}>{audio ? audio.name : 'No audio selected'}</Text>
+        <Text style={{ color: C.sub, marginTop: 8 }} numberOfLines={1}>{selectedAudio?.name ?? 'No audio selected'}</Text>
       </Card>
 
       <Card title="Background">
