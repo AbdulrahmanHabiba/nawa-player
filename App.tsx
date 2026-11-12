@@ -13,7 +13,10 @@ export default function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'songs' | 'rec' | 'video'>('songs');
-  const { queue, index, playing, toggle } = usePlayer();
+  const queue = usePlayer(p=>p.queue);
+  const index = usePlayer(p=>p.index);
+  const playing = usePlayer(p=>p.playing);
+  const toggle = usePlayer(p=>p.toggle);
   useEffect(() => { loadLibrary().then(async l => { setTracks(l); await enrich(l, setTracks); }).catch(e=>Alert.alert('Music library',String(e))); }, []);
   const cur = queue[index];
   return (

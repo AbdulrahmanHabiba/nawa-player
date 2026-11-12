@@ -22,7 +22,7 @@
       "blockedPermissions": [
         "android.permission.INTERNET"
       ],
-      "versionCode": 2
+      "versionCode": 3
     },
     "plugins": [
       [
@@ -47,6 +47,6 @@
     ],
     "newArchEnabled": false,
     "icon": "./assets/nawa-icon.png",
-    "version": "0.2.0"
+    "version": "0.3.0"
   }
 }

@@ -19,6 +19,7 @@ export default function Library({tracks}:{tracks:Track[]}) {
   const [section,setSection]=useState<Section>('Songs');
   const [group,setGroup]=useState<string|null>(null);
   const [query,search]=useState('');
+  const [sortMode,setSortMode]=useState<'newest'|'oldest'|'title'|'artist'>('newest');
   const [reverse,sort]=useState(false);
   const [lists,setLists]=useState<List[]>([]);
   const [name,setName]=useState('');
@@ -46,7 +47,7 @@ export default function Library({tracks}:{tracks:Track[]}) {
   const term=query.trim().toLocaleLowerCase();
   const showingGroups=section!=='Songs' && group===null;
   const order=(a:string,b:string)=>(reverse?-1:1)*a.localeCompare(b);
-  const songs=(group!==null && !edit ? groups.get(group)||[] : tracks).filter(t=>[t.title,t.artist,t.album].some(v=>v?.toLocaleLowerCase().includes(term))).sort((a,b)=>order(a.title,b.title));
+  const songs=(group!==null && !edit ? groups.get(group)||[] : tracks).filter(t=>[t.title,t.artist,t.album].some(v=>v?.toLocaleLowerCase().includes(term))).sort((a,b)=> sortMode==='newest' ? (b.addedAt??0)-(a.addedAt??0) : sortMode==='oldest' ? (a.addedAt??0)-(b.addedAt??0) : sortMode==='artist'?a.artist.localeCompare(b.artist):a.title.localeCompare(b.title));
   const current=lists.find(l=>l.name===group);
   const labels=[...groups.keys()].filter(k=>k.toLocaleLowerCase().includes(term)).sort(order);
   function toggle(id:string){
@@ -62,7 +63,7 @@ export default function Library({tracks}:{tracks:Track[]}) {
       <Pressable accessibilityLabel="Play collection" style={{alignSelf:'flex-start',backgroundColor:'white',borderRadius:18,paddingHorizontal:18,paddingVertical:7}} onPress={()=>{const collection=groups.get(group)||[];if(collection.length)play(collection,0);}}><Text style={{color:'#342034',fontWeight:'700'}}>▶ Play</Text></Pressable>
     </LinearGradient> : <Text numberOfLines={1} style={s.title}>{group??'Library'}</Text>}
     {group===null && <View style={{height:48}}><ScrollView horizontal showsHorizontalScrollIndicator={false}>{sections.map(v=><Pressable key={v} style={[s.pill,v===section&&s.selected]} onPress={()=>open(v)}><Text style={{color:v===section?'white':'#c6c0c6',fontWeight:'600'}}>{v}</Text></Pressable>)}</ScrollView></View>}
-    <View style={s.search}><Ionicons name="search" color="#aaa" size={19}/><TextInput value={query} onChangeText={search} placeholder={'Search '+(group??section)} placeholderTextColor="#979098" style={s.input}/><Pressable onPress={()=>sort(!reverse)}><Text style={s.link}>{reverse?'Z–A':'A–Z'}</Text></Pressable></View>
+    <View style={s.search}><Ionicons name="search" color="#aaa" size={19}/><TextInput value={query} onChangeText={search} placeholder={'Search '+(group??section)} placeholderTextColor="#979098" style={s.input}/><Pressable onPress={()=>Alert.alert('Sort tracks','Choose an order',[{text:'Date added · newest',onPress:()=>setSortMode('newest')},{text:'Date added · oldest',onPress:()=>setSortMode('oldest')},{text:'Title A–Z',onPress:()=>setSortMode('title')},{text:'Artist A–Z',onPress:()=>setSortMode('artist')}])}><Text style={s.link}>{sortMode==='newest'?'Newest':sortMode==='oldest'?'Oldest':sortMode==='artist'?'Artist':'A–Z'}</Text></Pressable></View>
     {section==='Playlists' && (group===null?<View style={s.search}><TextInput style={s.input} value={name} onChangeText={setName} placeholder="New playlist name" placeholderTextColor="#999"/><Pressable disabled={!loaded} onPress={()=>{const n=name.trim();if(!n)return;if(lists.some(l=>l.name===n))return Alert.alert('Playlist already exists');save([...lists,{name:n,ids:[]}]);setName('');setGroup(n);setEdit(true);}}><Text style={s.link}>Create</Text></Pressable></View>:<Pressable onPress={()=>setEdit(!edit)}><Text style={s.link}>{edit?'Done':'Edit songs'}</Text></Pressable>)}
     {showingGroups && section==='Albums' ? <FlatList key="album-grid" data={labels} numColumns={2} columnWrapperStyle={{gap:14}} contentContainerStyle={{paddingBottom:96}} keyExtractor={v=>v} ListEmptyComponent={<Text style={s.sub}>No albums found</Text>} renderItem={({item})=>{
       const album=groups.get(item) || [];

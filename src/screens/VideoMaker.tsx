@@ -9,7 +9,7 @@ import * as Font from 'expo-font';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import { FFmpegKit, FFmpegKitConfig, ReturnCode } from '@nikhil-cephei/ffmpeg-kit-react-native';
+import { FFmpegKit, FFmpegKitConfig, FFprobeKit, ReturnCode } from '@nikhil-cephei/ffmpeg-kit-react-native';
 import { usePlayer } from '../store/player';
 import { C } from '../theme';
 
@@ -46,8 +46,7 @@ const Chip = ({ label, on, onPress }: any) => (
 );
 
 export default function VideoMaker() {
-  const { queue, index } = usePlayer();
-  const cur = queue[index];
+  const cur = usePlayer(p=>p.queue[p.index]);
   const canvas = useRef<View>(null);
   const [audio, setAudio] = useState<{ uri: string; name: string } | null>(null);
   const selectedAudio = audio ?? (cur ? { uri: cur.uri, name: cur.title } : null);
@@ -55,7 +54,13 @@ export default function VideoMaker() {
   const [grad, setGrad] = useState<[string, string]>(PRESETS[0]);
   const [draftColors,setDraftColors] = useState<[string,string]>(PRESETS[0]);
   const [blur, setBlur] = useState(0.5);
-  const [text, setText] = useState('Your text here');
+  const [text, setText] = useState('');
+  const [artist,setArtist]=useState('');
+  const [deviceLabel,setDeviceLabel]=useState('iPhone');
+  const [elapsedLabel,setElapsedLabel]=useState('0:00');
+  const [remainingLabel,setRemainingLabel]=useState('');
+  const [volume,setVolume]=useState(0.7);
+  const [progress,setProgress]=useState(0.08);
   const [font, setFont] = useState<string | undefined>(undefined);
   const [size, setSize] = useState(0.4);
   const [statusBar, setStatusBar] = useState(true);
@@ -94,7 +99,7 @@ export default function VideoMaker() {
       frame=await captureRef(canvas,{format:'png',width:1080,height:1920,result:'tmpfile'});
       const input=selectedAudio.uri.startsWith('content://')?await FFmpegKitConfig.getSafParameterForRead(selectedAudio.uri):strip(selectedAudio.uri);
       const out=FileSystem.cacheDirectory+'nawa-'+Date.now()+'.mp4';
-      const args=['-y','-loop','1','-framerate','12','-i',strip(frame),'-i',input,'-map','0:v:0','-map','1:a:0','-vf','scale=1080:1920,setsar=1','-c:v','libx264','-threads','2','-tune','stillimage','-preset','ultrafast','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-shortest','-movflags','+faststart',strip(out)];
+      const args=['-y','-loop','1','-framerate','12','-i',strip(frame),'-i',input,'-map','0:v:0','-map','1:a:0','-vf','scale=1080:1920,setsar=1','-c:v','libx264','-threads','2','-tune','stillimage','-preset','ultrafast','-crf','25','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-shortest','-movflags','+faststart',strip(out)];
       const session=await FFmpegKit.executeWithArguments(args);
       if(!ReturnCode.isSuccess(await session.getReturnCode())) {
         await FileSystem.deleteAsync(out,{idempotent:true});
@@ -110,22 +115,29 @@ export default function VideoMaker() {
     <ScrollView removeClippedSubviews={false} style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ paddingBottom: 140 }}>
       <Text style={{ color: C.text, fontSize: 34, fontWeight: '700', padding: 20 }}>Video Maker</Text>
 
-      {/* PREVIEW (this exact view is captured) */}
-      <View ref={canvas} collapsable={false} style={{ alignSelf: 'center', width: 240, height: 426, borderRadius: 18, overflow: 'hidden', backgroundColor: '#000' }}>
-        {image
-          ? <Image source={{ uri: image }} blurRadius={blur * 25} resizeMode="cover" style={{ position: 'absolute', width: '100%', height: '100%' }} />
-          : <LinearGradient colors={grad} style={{ position: 'absolute', width: '100%', height: '100%' }} />}
-        {image && <Image source={{uri:image}} resizeMode="cover" style={{position:'absolute',top:88,left:36,width:168,height:168,borderRadius:12}}/>}
-        {statusBar && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingTop: 10 }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>9:41</Text>
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <Ionicons name="cellular" size={12} color="#fff" /><Ionicons name="wifi" size={12} color="#fff" /><Ionicons name="battery-full" size={14} color="#fff" />
-            </View>
+      <View ref={canvas} collapsable={false} style={{alignSelf:'center',width:300,height:534,overflow:'hidden',backgroundColor:grad[1]}}>
+        {image ? <Image source={{uri:image}} blurRadius={blur*35} resizeMode="cover" style={{position:'absolute',width:'100%',height:'100%',opacity:.85}}/> : <LinearGradient colors={grad} style={{position:'absolute',width:'100%',height:'100%'}}/>}
+        {statusBar && <View style={{position:'absolute',top:9,left:18,right:18,flexDirection:'row',justifyContent:'space-between'}}>
+          <Text style={{color:'white',fontFamily:font,fontSize:10}}>9:41</Text>
+          <View style={{flexDirection:'row',gap:4}}><Ionicons name="cellular" size={11} color="white"/><Ionicons name="wifi" size={11} color="white"/><Ionicons name="battery-full" size={13} color="white"/></View>
+        </View>}
+        <View style={{position:'absolute',left:24,top:52,width:252,height:430,borderRadius:28,backgroundColor:'rgba(12,12,13,.94)',padding:14}}>
+          <View style={{width:224,height:224,borderRadius:5,overflow:'hidden'}}>
+            {image ? <Image source={{uri:image}} resizeMode="cover" style={{width:'100%',height:'100%'}}/> : <LinearGradient colors={grad} style={{flex:1,alignItems:'center',justifyContent:'center'}}><Ionicons name="musical-notes" size={76} color="rgba(255,255,255,.8)"/></LinearGradient>}
           </View>
-        )}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: image?'flex-end':'center', padding: 20 }}>
-          <Text style={{ color: '#fff', fontSize: fs * 0.6, fontFamily: font, textAlign: 'center', fontWeight: '700' }}>{text}</Text>
+          <Text numberOfLines={1} style={{color:'#929297',fontFamily:font,fontSize:9,marginTop:12}}>{deviceLabel}</Text>
+          <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+            <Text numberOfLines={1} style={{flex:1,color:'white',fontFamily:font,fontSize:13+size*3,fontWeight:'600'}}>{text || selectedAudio?.name || 'Track title'}</Text>
+            <Ionicons name="radio-outline" color="white" size={16}/>
+          </View>
+          <Text numberOfLines={1} style={{color:'#d6d6d8',fontFamily:font,fontSize:12,marginTop:2}}>{artist || cur?.artist || 'Artist'}</Text>
+          <View style={{height:3,backgroundColor:'#555558',marginTop:17,borderRadius:2}}>
+            <View style={{height:3,width:`${progress*100}%`,backgroundColor:'white',borderRadius:2}}/>
+            <View style={{position:'absolute',left:`${progress*100}%`,top:-1,width:5,height:5,borderRadius:3,backgroundColor:'white'}}/>
+          </View>
+          <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:5}}><Text style={{color:'#a4a4a8',fontSize:9,fontFamily:font}}>{elapsedLabel}</Text><Text style={{color:'#a4a4a8',fontSize:9,fontFamily:font}}>{remainingLabel || (cur ? '-'+Math.floor(cur.duration/60)+':'+String(Math.floor(cur.duration%60)).padStart(2,'0') : '-0:00')}</Text></View>
+          <View style={{flexDirection:'row',justifyContent:'space-evenly',alignItems:'center',marginTop:12}}><Ionicons name="play-back" size={27} color="white"/><Ionicons name="pause" size={34} color="white"/><Ionicons name="play-forward" size={27} color="white"/></View>
+          <View style={{flexDirection:'row',alignItems:'center',gap:10,marginTop:15}}><Ionicons name="volume-low" color="#aaa" size={14}/><View style={{flex:1,height:3,backgroundColor:'#555558',borderRadius:2}}><View style={{width:`${volume*100}%`,height:3,backgroundColor:'white'}}/><View style={{position:'absolute',top:-4,left:`${volume*100}%`,width:11,height:11,borderRadius:6,backgroundColor:'white'}}/></View><Ionicons name="volume-high" size={14} color="#aaa"/></View>
         </View>
       </View>
 
@@ -165,6 +177,11 @@ export default function VideoMaker() {
         )}
       </Card>
 
+      <Card title="Player details">
+        {[['Device label',deviceLabel,setDeviceLabel],['Track title',text,setText],['Artist / subtitle',artist,setArtist],['Elapsed time',elapsedLabel,setElapsedLabel],['Remaining time',remainingLabel,setRemainingLabel]].map(([label,value,change])=><View key={label as string}><Text style={{color:C.sub,marginBottom:4}}>{label as string}</Text><TextInput value={value as string} onChangeText={change as (v:string)=>void} style={{color:'white',backgroundColor:'#2c2c30',borderRadius:10,padding:10,marginBottom:10}}/></View>)}
+        <Text style={{color:C.sub}}>Timeline position</Text><Slider value={progress} onChange={setProgress}/>
+        <Text style={{color:C.sub}}>Volume indicator</Text><Slider value={volume} onChange={setVolume}/>
+      </Card>
       <Card title="Text">
         <TextInput value={text} onChangeText={setText} multiline style={{ color: '#fff', backgroundColor: '#2c2c30', borderRadius: 10, padding: 10, minHeight: 44 }} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
