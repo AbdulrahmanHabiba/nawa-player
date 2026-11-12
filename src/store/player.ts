@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Alert } from 'react-native';
-import Player, { Capability, Event, State } from 'react-native-track-player';
+import Player, { Capability, Event, State, RepeatMode } from 'react-native-track-player';
 import { Track } from '../audio/library';
 
 let startup: Promise<void> | undefined;
@@ -24,9 +24,23 @@ function command(action: () => Promise<void>) {
 export const usePlayer = create<{
   queue: Track[]; index: number; playing: boolean; position: number; duration: number; volume: number;
   playQueue(q: Track[], i: number): void; toggle(): void; next(): void; prev(): void;
+  shuffleNext():void; repeat:RepeatMode; cycleRepeat():void;
   seek(seconds: number): void; setVolume(v: number): void; move(from: number, to: number): void;
 } >((set,get) => ({
   queue: [], index: 0, playing: false, position: 0, duration: 0, volume: 0.8,
+  repeat: RepeatMode.Off,
+  cycleRepeat: () => command(async () => {
+    const mode = get().repeat;
+    const next = mode===RepeatMode.Off ? RepeatMode.Queue : mode===RepeatMode.Queue ? RepeatMode.Track : RepeatMode.Off;
+    await Player.setRepeatMode(next); set({repeat:next});
+  }),
+  shuffleNext: () => command(async () => {
+    const q=[...get().queue]; const start=get().index+1;
+    for(let end=q.length-1;end>start;end--){
+      const from=start+Math.floor(Math.random()*(end-start+1));
+      if(from!==end){await Player.move(from,end);q.splice(end,0,q.splice(from,1)[0]);set({queue:[...q]});}
+    }
+  }),
   playQueue: (q,i) => command(async () => {
     if (!q[i]) return;
     await Player.setQueue(q.map(t => ({...t,url:t.uri})));

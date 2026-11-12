@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View, FlatList, useWindowDimensions, PanRespond
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../store/player';
+import { RepeatMode } from 'react-native-track-player';
 import { C } from '../theme';
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -28,10 +29,15 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
   const { width, height } = useWindowDimensions();
   const [upNext, showQueue] = React.useState(false);
   const move = usePlayer(p=>p.move);
+  const {repeat,cycleRepeat,shuffleNext}=usePlayer();
   const t = queue[index];
   if (!t) return null;
   const land = width > height;
   const queueButton=<Pressable accessibilityLabel="Up next" onPress={()=>showQueue(true)} style={{padding:10}}><Ionicons name="list" color="white" size={26}/></Pressable>;
+  const modes=<View style={{flexDirection:'row',alignItems:'center',gap:12}}>
+    <Pressable accessibilityLabel="Shuffle upcoming songs" onPress={shuffleNext} hitSlop={6}><Ionicons name="shuffle" size={22} color="#eee"/></Pressable>
+    <Pressable accessibilityLabel="Change repeat mode" onPress={cycleRepeat} hitSlop={6} style={{flexDirection:'row'}}><Ionicons name="repeat" size={22} color={repeat===RepeatMode.Off?'#ddd':'#ff829a'}/>{repeat===RepeatMode.Track && <Text style={{color:'#ff829a'}}>1</Text>}</Pressable>
+  </View>;
   if(upNext) return <View style={{flex:1,backgroundColor:'#19121c',padding:22,paddingTop:38}}>
     <Pressable onPress={()=>showQueue(false)}><Text style={{color:'#ff7990'}}>‹ Now Playing</Text></Pressable>
     <Text style={{color:'white',fontSize:32,fontWeight:'700',marginVertical:15}}>Up next</Text>
@@ -67,6 +73,7 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
             <Pressable onPress={toggle}><Ionicons name={playing ? 'pause' : 'play'} size={52} color="#fff" /></Pressable>
             <Pressable onPress={next}><Ionicons name="play-forward" size={36} color="#fff" /></Pressable>
           </View>
+          {modes}
           <Bar value={duration ? position / duration : 0} onChange={v => seek(v * duration)} height={4} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ color: C.sub, fontSize: 11 }}>{fmt(position)}</Text>
@@ -91,7 +98,7 @@ export default function NowPlaying({ onClose }: { onClose: () => void }) {
           <Text numberOfLines={1} style={{ color: C.text, fontSize: 22, fontWeight: '700' }}>{t.title}</Text>
           <Text numberOfLines={1} style={{ color: C.sub, fontSize: 20 }}>{t.artist}</Text>
         </View>
-        {queueButton}
+        {modes}{queueButton}
       </View>
       <View style={{ marginTop: 16 }}>
         <Bar value={duration ? position / duration : 0} onChange={v => seek(v * duration)} />

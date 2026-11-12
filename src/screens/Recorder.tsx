@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, View, PanResponder, ScrollView } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { requestRecordingPermissionsAsync, createAudioPlayer } from 'expo-audio';
 import MusicMeta from '../../modules/music-meta';
+import TrackPlayer from 'react-native-track-player';
+import { usePlayer } from '../store/player';
 import { C } from '../theme';
 
 type Rec = { uri: string; name: string; seconds: number };
@@ -15,7 +17,15 @@ export default function Recorder() {
   const [settings, setSettings] = useState(false);
   const active = useRef(false);
   const busy = useRef(false);
-  useEffect(() => () => { if (active.current) void MusicMeta.stopRecording(); player.current?.remove(); }, []);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (active.current) void MusicMeta.stopRecording().catch(() => {});
+      player.current?.remove();
+    };
+  }, []);
   const [isRec, setIsRec] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [isolation, setIsolation] = useState(true);
@@ -49,9 +59,15 @@ export default function Recorder() {
     const p = await requestRecordingPermissionsAsync();
     if (!p.granted) return Alert.alert('Microphone permission is required');
     await FileSystem.makeDirectoryAsync(DIR, { intermediates: true });
+    if (!mounted.current) return;
+    if (usePlayer.getState().playing) await TrackPlayer.pause();
+    player.current?.remove();
+    player.current = null;
+    setPlaying(null);
     const name = `New Recording ${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
     const ok = await MusicMeta.startRecording((DIR + name + '.wav').replace('file://', ''), isolation, sens);
     if (!ok) return Alert.alert('Could not start recording');
+    if (!mounted.current) { await MusicMeta.stopRecording(); return; }
     active.current = true;
     setLevels(Array(BARS).fill(0)); t0.current = Date.now(); setElapsed(0); setIsRec(true);
   };

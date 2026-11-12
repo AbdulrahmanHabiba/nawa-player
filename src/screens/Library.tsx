@@ -55,11 +55,26 @@ export default function Library({tracks}:{tracks:Track[]}) {
   }
   return <View style={s.root}>
     {group!==null && <Pressable onPress={()=>open(section)}><Text style={s.link}>‹ {section}</Text></Pressable>}
-    <Text numberOfLines={1} style={s.title}>{group??'Library'}</Text>
+    {group!==null && section!=='Playlists' ? <LinearGradient colors={['#58263e','#231c2a']} style={{borderRadius:20,overflow:'hidden',padding:18,marginBottom:12}}>
+      {groups.get(group)?.[0]?.artwork && <Image source={{uri:groups.get(group)?.[0]?.artwork}} blurRadius={24} style={{position:'absolute',width:'140%',height:'160%',opacity:.32}}/>}
+      <Text style={s.sub}>{section==='Artists'?'Artist':'Album'}</Text>
+      <Text numberOfLines={2} style={[s.title,{fontSize:28}]}>{group}</Text>
+      <Pressable accessibilityLabel="Play collection" style={{alignSelf:'flex-start',backgroundColor:'white',borderRadius:18,paddingHorizontal:18,paddingVertical:7}} onPress={()=>{const collection=groups.get(group)||[];if(collection.length)play(collection,0);}}><Text style={{color:'#342034',fontWeight:'700'}}>▶ Play</Text></Pressable>
+    </LinearGradient> : <Text numberOfLines={1} style={s.title}>{group??'Library'}</Text>}
     {group===null && <View style={{height:48}}><ScrollView horizontal showsHorizontalScrollIndicator={false}>{sections.map(v=><Pressable key={v} style={[s.pill,v===section&&s.selected]} onPress={()=>open(v)}><Text style={{color:v===section?'white':'#c6c0c6',fontWeight:'600'}}>{v}</Text></Pressable>)}</ScrollView></View>}
     <View style={s.search}><Ionicons name="search" color="#aaa" size={19}/><TextInput value={query} onChangeText={search} placeholder={'Search '+(group??section)} placeholderTextColor="#979098" style={s.input}/><Pressable onPress={()=>sort(!reverse)}><Text style={s.link}>{reverse?'Z–A':'A–Z'}</Text></Pressable></View>
     {section==='Playlists' && (group===null?<View style={s.search}><TextInput style={s.input} value={name} onChangeText={setName} placeholder="New playlist name" placeholderTextColor="#999"/><Pressable disabled={!loaded} onPress={()=>{const n=name.trim();if(!n)return;if(lists.some(l=>l.name===n))return Alert.alert('Playlist already exists');save([...lists,{name:n,ids:[]}]);setName('');setGroup(n);setEdit(true);}}><Text style={s.link}>Create</Text></Pressable></View>:<Pressable onPress={()=>setEdit(!edit)}><Text style={s.link}>{edit?'Done':'Edit songs'}</Text></Pressable>)}
-    {showingGroups?<FlatList data={labels} keyExtractor={v=>v} ListEmptyComponent={<Text style={s.sub}>No {section.toLowerCase()} found</Text>} renderItem={({item})=><Pressable style={s.row} onPress={()=>{setGroup(item);search('');}}><Cover track={groups.get(item)?.[0]}/><View style={s.info}><Text style={s.label}>{item}</Text><Text style={s.sub}>{groups.get(item)?.length} tracks</Text></View><Ionicons name="chevron-forward" color="#938893" size={18}/></Pressable>}/>:
+    {showingGroups && section==='Albums' ? <FlatList key="album-grid" data={labels} numColumns={2} columnWrapperStyle={{gap:14}} contentContainerStyle={{paddingBottom:96}} keyExtractor={v=>v} ListEmptyComponent={<Text style={s.sub}>No albums found</Text>} renderItem={({item})=>{
+      const album=groups.get(item) || [];
+      const art=album.find(t=>t.artwork)?.artwork;
+      return <Pressable onPress={()=>{setGroup(item);search('');}} style={{width:'48%',marginBottom:18}}>
+        <LinearGradient colors={['#7a3f60','#302234']} style={{aspectRatio:1,borderRadius:13,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+          {art?<Image source={{uri:art}} style={{width:'100%',height:'100%'}}/>:<Ionicons name="disc-outline" color="#edbccc" size={50}/>}
+        </LinearGradient>
+        <Text numberOfLines={1} style={[s.label,{marginTop:8}]}>{item}</Text>
+        <Text numberOfLines={1} style={s.sub}>{album[0]?.artist} · {album.length} tracks</Text>
+      </Pressable>;
+    }}/> : showingGroups?<FlatList key="groups" data={labels} keyExtractor={v=>v} ListEmptyComponent={<Text style={s.sub}>No {section.toLowerCase()} found</Text>} renderItem={({item})=><Pressable style={s.row} onPress={()=>{setGroup(item);search('');}}><Cover track={groups.get(item)?.[0]}/><View style={s.info}><Text style={s.label}>{item}</Text><Text style={s.sub}>{groups.get(item)?.length} tracks</Text></View><Ionicons name="chevron-forward" color="#938893" size={18}/></Pressable>}/>:
     <FlatList data={songs} keyExtractor={t=>t.id} contentContainerStyle={{paddingBottom:95}} ListEmptyComponent={<Text style={s.sub}>{section==='Songs'&&!tracks.length?'No local audio found. Check Music and audio access in Android settings.':'No matching tracks'}</Text>} renderItem={({item,index})=><Pressable accessibilityLabel={item.title} style={s.row} onPress={()=>edit?toggle(item.id):play(songs,index)}><Cover track={item}/><View style={s.info}><Text numberOfLines={1} style={s.label}>{item.title}</Text><Text numberOfLines={1} style={s.sub}>{item.artist}</Text></View>{edit && <Ionicons name={current?.ids.includes(item.id)?'checkmark-circle':'ellipse-outline'} color={accent} size={24}/>}</Pressable>}/>}
   </View>;
 }

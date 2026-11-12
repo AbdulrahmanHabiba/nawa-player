@@ -52,6 +52,7 @@ export default function VideoMaker() {
   const [audio, setAudio] = useState<{ uri: string; name: string } | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [grad, setGrad] = useState<[string, string]>(PRESETS[0]);
+  const [draftColors,setDraftColors] = useState<[string,string]>(PRESETS[0]);
   const [blur, setBlur] = useState(0.5);
   const [text, setText] = useState('Your text here');
   const [font, setFont] = useState<string | undefined>(undefined);
@@ -105,7 +106,7 @@ export default function VideoMaker() {
 
   const fs = 18 + size * 40;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ paddingBottom: 140 }}>
+    <ScrollView removeClippedSubviews={false} style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ paddingBottom: 140 }}>
       <Text style={{ color: C.text, fontSize: 34, fontWeight: '700', padding: 20 }}>Video Maker</Text>
 
       {/* PREVIEW (this exact view is captured) */}
@@ -144,15 +145,18 @@ export default function VideoMaker() {
           <>
             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
               {PRESETS.map((p, i) => (
-                <Pressable key={i} onPress={() => setGrad(p)} style={{ marginRight: 10 }}>
+                <Pressable key={i} onPress={() => {setGrad(p);setDraftColors(p);}} style={{ marginRight: 10 }}>
                   <LinearGradient colors={p} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: grad === p ? 2 : 0, borderColor: '#fff' }} />
                 </Pressable>
               ))}
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[0, 1].map(i => (
-                <TextInput key={i} value={grad[i]} autoCapitalize="characters" maxLength={7}
-                  onChangeText={v => setGrad(g => (i ? [g[0], v] : [v, g[1]]) as [string, string])}
+                <TextInput key={i} value={draftColors[i]} autoCapitalize="characters" maxLength={7}
+                  onChangeText={v => {
+                    const next:[string,string] = [...draftColors]; next[i] = v; setDraftColors(next);
+                    if (/^#[0-9a-f]{6}$/i.test(v)) setGrad(g => i ? [g[0],v] : [v,g[1]]);
+                  }}
                   style={{ flex: 1, color: '#fff', backgroundColor: '#2c2c30', borderRadius: 10, padding: 8 }} placeholder="#RRGGBB" placeholderTextColor="#777" />
               ))}
             </View>

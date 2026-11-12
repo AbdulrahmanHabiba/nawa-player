@@ -18,7 +18,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/nawa-icon.png",
         "backgroundColor": "#271729"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.INTERNET"
+      ],
+      "versionCode": 2
     },
     "plugins": [
       [
@@ -42,6 +46,7 @@
       ]
     ],
     "newArchEnabled": false,
-    "icon": "./assets/nawa-icon.png"
+    "icon": "./assets/nawa-icon.png",
+    "version": "0.2.0"
   }
 }

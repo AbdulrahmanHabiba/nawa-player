@@ -3,6 +3,7 @@ import re
 import subprocess
 import time
 import wave
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -10,6 +11,23 @@ PACKAGE = "com.abdulrahman.nawa"
 
 def adb(*args):
     return subprocess.check_output(["adb", *map(str,args)],text=True)
+
+capture_dir = Path("smoke-evidence")
+capture_dir.mkdir(exist_ok=True)
+
+def capture(name):
+    (capture_dir / (name+".png")).write_bytes(subprocess.check_output(["adb","exec-out","screencap","-p"]))
+
+def explain_failure(kind, error, traceback):
+    try:
+        capture("failure")
+        logs = adb("logcat","-d","-t","3000","ReactNativeJS:V","AndroidRuntime:E","FFmpegKit:V","*:S")
+        (capture_dir / "android.log").write_text(logs)
+        print(logs[-10000:], flush=True)
+    finally:
+        sys.__excepthook__(kind,error,traceback)
+
+sys.excepthook = explain_failure
 
 def screen():
     adb("shell","uiautomator","dump","/sdcard/nawa-ui.xml")
@@ -39,21 +57,30 @@ adb("push","/tmp/NawaFixture.wav","/sdcard/Music/NawaFixture.wav")
 adb("shell","am","broadcast","-a","android.intent.action.MEDIA_SCANNER_SCAN_FILE","-d","file:///sdcard/Music/NawaFixture.wav")
 time.sleep(3)
 adb("shell","am","start","-n",PACKAGE+"/.MainActivity")
+find("NawaFixture")
+capture("library")
 tap("NawaFixture")
 time.sleep(2)
 assert PACKAGE in adb("shell","dumpsys","media_session")
 tap("Open Now Playing")
+time.sleep(1)
+capture("portrait")
 adb("shell","settings","put","system","accelerometer_rotation",0)
 adb("shell","settings","put","system","user_rotation",1)
 find("NOW PLAYING")
+capture("landscape")
 adb("shell","settings","put","system","user_rotation",0)
 adb("shell","input","keyevent",4)
 tap("Record tab")
-tap("Start recording")
-time.sleep(2)
-tap("Stop recording")
+record_button = find("Start recording")
+adb("shell","input","tap",*record_button)
+time.sleep(3)
+capture("recorder")
+adb("shell","input","tap",*record_button)
 find("Start recording")
+assert "New Recording " in ET.tostring(screen(),encoding="unicode"), "No new memo appeared after stopping"
 tap("Video tab")
+capture("video-preview")
 tap("Current song",scroll=True)
 tap("Export MP4",scroll=True)
 tap("Save to gallery",scroll=True,timeout=150)

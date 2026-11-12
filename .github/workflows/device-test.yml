@@ -40,3 +40,9 @@ jobs:
           assert {'video','audio'}=={s['codec_type'] for s in data['streams']}
           assert 14 <= float(data['format']['duration']) <= 17
           PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-evidence
+          path: smoke-evidence/
+          if-no-files-found: ignore
